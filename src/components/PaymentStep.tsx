@@ -101,15 +101,19 @@ function PaymentStep({
     
     const { date, field, timeSlot, paymentProof } = reservationData;
 
+    // customerName'i reservationData'ya ekle
+    updateReservationData({ customerName: trimmedCustomerName });
+
     try {
-        // 🔥🔥🔥 createReservation servisini çağır
+        // 🔥🔥🔥 KRİTİK DÜZELTME: Doğru anahtar adlarıyla gönder. 🔥🔥🔥
         const result = await createReservation(
             { 
-              tarih: date, 
-              saat: timeSlot,
-              sahaAdi: field,
-              adSoyad: trimmedCustomerName, 
-              odemeDurumu: 'Dekont Bekleniyor' 
+              // Bu adları, AdminPanel ve ReservationService'in beklediği date, field, timeSlot
+              // şeklinde göndermemiz gerekiyor.
+              date: date,       // <- Düzeltildi
+              field: field,     // <- Düzeltildi
+              timeSlot: timeSlot, // <- Düzeltildi
+              customerName: trimmedCustomerName, 
             }, 
             paymentProof 
         );
