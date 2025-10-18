@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, Dispatch } from 'react';
+import { User } from 'firebase/auth'; // Firebase User tipini dahil ettik
 import { Calendar, MapPin, Clock, CreditCard, Upload, CheckCircle, XCircle } from 'lucide-react';
 import DateSelectionStep from './components/DateSelectionStep';
 import TimeSelectionStep from './components/TimeSelectionStep';
-// PaymentStep'ten hem bileşeni hem de prop arayüzünü (PaymentStepProps) içe aktarıyoruz
 import PaymentStep, { PaymentStepProps } from './components/PaymentStep'; 
 import AdminPanel from './components/AdminPanel';
 import StepIndicator from './components/StepIndicator';
 
-// Firebase servislerini import edin
-import { db, storage } from './firebase/config'; // 'firebase' klasörünüzdeki config.js dosyasından
+import AdminLogin from './components/AdminLogin'; 
+import { onAuthStateChange, logoutAdmin } from './services/authService'; 
+
+import { db, storage } from './firebase/config';
 import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -17,7 +19,7 @@ interface ReservationData {
   field: string;
   timeSlot: string;
   paymentProof?: File;
-  customerName: string; // Örnek olarak ekledim
+  customerName: string; 
 }
 
 interface FieldOwner {
@@ -35,16 +37,38 @@ function App() {
     customerName: '',
   });
   const [fieldOwner, setFieldOwner] = useState<FieldOwner | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Ortam değişkeni testini buraya taşıdım. Konsolu kontrol etmeyi unutmayın.
-  // console.log("STORAGE BUCKET OKUNDU MU?", process.env.REACT_APP_FIREBASE_STORAGE_BUCKET);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean | null>(null); 
+  
+  const isUrlAdmin = window.location.pathname.includes('/admin');
+
+  // Hata 7006 Düzeltildi: user parametresine tipi (User | null) ekledik
+  useEffect(() => {
+    if (!isUrlAdmin) return; 
+    
+    const unsubscribe = onAuthStateChange((user: User | null) => { 
+        setIsAdminLoggedIn(!!user);
+    });
+    
+    return () => unsubscribe();
+  }, [isUrlAdmin]);
+
+
+  const handleLogout = async () => {
+    try {
+      await logoutAdmin();
+    } catch (error) {
+      console.error("Çıkış hatası:", error);
+      alert('Güvenli çıkış yapılırken bir hata oluştu!');
+    }
+  };
+
 
   const handleNextStep = () => {
-    // Mevcut adımda gerekli veri var mı kontrol edebilirsiniz
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -71,11 +95,7 @@ function App() {
       if (reservationData.paymentProof) {
         const file = reservationData.paymentProof;
         const storageRef = ref(storage, `payment_proofs/${Date.now()}_${file.name}`);
-        
-        // uploadBytes, dosyayı yükler
         const snapshot = await uploadBytes(storageRef, file); 
-        
-        // getDownloadURL, yüklenen dosyanın indirme linkini alır
         downloadURL = await getDownloadURL(snapshot.ref); 
       }
 
@@ -85,15 +105,13 @@ function App() {
         field: reservationData.field,
         timeSlot: reservationData.timeSlot,
         customerName: reservationData.customerName,
-        paymentProofURL: downloadURL, // Yüklenen dosyanın URL'sini ekle
+        paymentProofURL: downloadURL, 
         status: 'Beklemede',
         createdAt: new Date(),
       };
 
-      // addDoc ile yeni bir doküman ekle
       await addDoc(collection(db, 'reservations'), reservationDoc);
 
-      // Başarılı olursa
       setIsSubmitted(true);
     } catch (e) {
       console.error("Rezervasyon oluşturulurken hata:", e);
@@ -103,31 +121,55 @@ function App() {
     }
   };
 
-  const toggleAdminView = () => {
-    setIsAdmin(!isAdmin);
+
+  const renderAdminContent = () => {
+      // Auth durumu hala belirleniyor
+      if (isAdminLoggedIn === null) {
+          return (
+              <div className="flex justify-center items-center h-screen">
+                  <p className="text-xl font-medium text-gray-700">Kimlik Doğrulanıyor...</p>
+              </div>
+          );
+      }
+
+      // Giriş yapmadıysa: Admin Giriş Sayfası
+      if (!isAdminLoggedIn) {
+          return <AdminLogin onLoginSuccess={() => { /* State otomatik güncellenecek */ }} />;
+      }
+      
+      // Giriş yaptıysa: Admin Paneli ve Çıkış Butonu
+      return (
+          <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50">
+              <div className="container mx-auto px-4 py-8">
+                  <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-lg shadow-md">
+                      <h1 className="text-3xl font-bold text-gray-800">Yönetici Paneli</h1>
+                      <div className="flex space-x-3">
+                          <button
+                              onClick={() => window.location.pathname = '/'} 
+                              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                          >
+                              Rezervasyon Sayfası
+                          </button>
+                          <button
+                              onClick={handleLogout}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                              Güvenli Çıkış
+                          </button>
+                      </div>
+                  </div>
+                  <AdminPanel />
+              </div>
+          </div>
+      );
   };
 
-  // ... (Geri kalan render fonksiyonları)
-
-  if (isAdmin) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Admin Panel</h1>
-            <button
-              onClick={toggleAdminView}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Rezervasyon Sayfası
-            </button>
-          </div>
-          <AdminPanel />
-        </div>
-      </div>
-    );
+  // Uygulamanın ana render fonksiyonu
+  if (isUrlAdmin) {
+      return renderAdminContent();
   }
 
+  // ... (Geri kalan rezervasyon akışı)
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center">
@@ -137,7 +179,6 @@ function App() {
           <p className="text-gray-600 mb-6">
             Rezervasyon talebiniz halı saha sahibine iletildi. Dekont incelendikten sonra size bilgi verilecektir.
           </p>
-          {/* Hata gösterimi eklendi */}
           {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg mt-4">{error}</p>}
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -157,10 +198,10 @@ function App() {
               }}
               className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
             >
-              Yeni Rezervasyon
+              Yeni Rezervasyon Yap
             </button>
             <button
-              onClick={toggleAdminView}
+              onClick={() => window.location.pathname = '/admin'} 
               className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Admin Panel
@@ -178,7 +219,7 @@ function App() {
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Halı Saha Rezervasyonu</h1>
           <p className="text-gray-600">Kolayca halı saha rezervasyonu yapın</p>
           <button
-            onClick={toggleAdminView}
+            onClick={() => window.location.pathname = '/admin'} 
             className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
           >
             Admin Panel
@@ -226,7 +267,7 @@ function App() {
                 setFieldOwner={setFieldOwner}
                 onPrev={handlePrevStep}
                 onSubmit={handleSubmitReservation}
-                isLoading={isLoading} // Yükleniyor durumunu PaymentStep'e gönderin
+                isLoading={isLoading} 
               />
             )}
           </div>
@@ -234,6 +275,5 @@ function App() {
       </div>
     </div>
   );
-
 }
 export default App;

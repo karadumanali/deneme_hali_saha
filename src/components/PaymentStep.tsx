@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { CreditCard, Upload, User, ChevronLeft, CheckCircle } from 'lucide-react';
-import { createReservation } from '../services/reservationService'; // createReservation import edildi
+// import { createReservation } from '../services/reservationService'; // Bu artık App.tsx'teki onSubmit'in içinde yapılıyor
 
-// Gerekli Arayüzler (Interface) Sadece Bir Kez Tanımlanır
-
+// Gerekli Arayüzler (Interface) 
 interface ReservationData {
   date: string;
   field: string;
@@ -18,12 +17,16 @@ interface FieldOwner {
   iban: string;
 }
 
+// 🔥 KESİN ÇÖZÜM: onSubmit ve isLoading prop'ları PaymentStepProps arayüzüne ekleniyor
 export interface PaymentStepProps { 
   reservationData: ReservationData;
   updateReservationData: (data: Partial<ReservationData>) => void;
   fieldOwner: FieldOwner | null;
+  // setFieldOwner artık Dispatch tipinde olması gerekiyor, ama App.tsx'teki haliyle uyumlu tutuyorum.
   setFieldOwner: React.Dispatch<React.SetStateAction<FieldOwner | null>>; 
   onPrev: () => void;
+  onSubmit: () => Promise<void>; // 👈 HATA ÇÖZÜLDÜ
+  isLoading: boolean;              // 👈 HATA ÇÖZÜLDÜ
 }
 
 
@@ -31,25 +34,22 @@ export interface PaymentStepProps {
 const SHARED_FIELD_OWNER: FieldOwner = {
   name: 'Ankara Yıldırım Beyazıt Üniversitesi', 
   surname: 'SKS Birimi', 
-  iban: 'TR33 0006 1005 1978 6457 8413 26' // Tüm sahaların IBAN'ı aynı
+  iban: 'TR33 0006 1005 1978 6457 8413 26' 
 };
 
 
 function PaymentStep({ 
   reservationData, 
   updateReservationData, 
-  // fieldOwner ve setFieldOwner prop'larını artık kullanmayız.
   onPrev, 
+  onSubmit, 
+  isLoading, 
 }: PaymentStepProps) {
   
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(reservationData.paymentProof || null);
   const [customerName, setCustomerName] = useState(reservationData.customerName || '');
-  const [isSubmitting, setIsSubmitting] = useState(false); 
-
-  // Artık SHARED_FIELD_OWNER sabiti kullanılıyor.
-  // Not: fieldOwner/setFieldOwner prop'larını props listesinden de kaldırdık.
-
+  
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -89,49 +89,19 @@ function PaymentStep({
     }
   };
 
-  // 🔥 GÜNCEL POST İŞLEMİ
   const handleFinalSubmit = async () => {
     const trimmedCustomerName = customerName.trim();
     if (!uploadedFile || !trimmedCustomerName) {
-      alert("Lütfen dekontunuzu yükleyin ve adınızı/soyadınızı girin.");
+      // alert yerine daha iyi bir hata mesajı sistemi kullanın
+      alert("Lütfen dekontunuzu yükleyin ve adınızı/soyadınızı girin."); 
       return;
     }
     
-    setIsSubmitting(true);
-    
-    const { date, field, timeSlot, paymentProof } = reservationData;
-
     // customerName'i reservationData'ya ekle
     updateReservationData({ customerName: trimmedCustomerName });
 
-    try {
-        // 🔥🔥🔥 KRİTİK DÜZELTME: Doğru anahtar adlarıyla gönder. 🔥🔥🔥
-        const result = await createReservation(
-            { 
-              // Bu adları, AdminPanel ve ReservationService'in beklediği date, field, timeSlot
-              // şeklinde göndermemiz gerekiyor.
-              date: date,       // <- Düzeltildi
-              field: field,     // <- Düzeltildi
-              timeSlot: timeSlot, // <- Düzeltildi
-              customerName: trimmedCustomerName, 
-            }, 
-            paymentProof 
-        );
-
-        if (result.success) {
-            alert(`Rezervasyonunuz başarıyla oluşturuldu! Takip ID: ${result.id}`);
-            // Başarılı işlem sonrası yönlendirme mantığı buraya gelir.
-        } else {
-            console.error('Rezervasyon gönderme hatası:', result.error);
-            alert(`Rezervasyon yapılırken hata oluştu: ${result.error}`);
-        }
-
-    } catch (e) {
-        console.error('Kritik Ağ Hatası:', e);
-        alert('Sunucuya ulaşılamadı. Lütfen tekrar deneyin.');
-    } finally {
-        setIsSubmitting(false);
-    }
+    // App.tsx'ten gelen onSubmit fonksiyonunu çağır
+    await onSubmit();
   };
 
   const isFormValid = uploadedFile && customerName.trim();
@@ -198,7 +168,7 @@ function PaymentStep({
           </div>
       </div>
 
-      {/* KİŞİ BİLGİLERİ (ESKİ YAPIDAN GERİ GELDİ) */}
+      {/* KİŞİ BİLGİLERİ */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <User className="w-5 h-5 text-emerald-600" />
@@ -222,7 +192,7 @@ function PaymentStep({
         </div>
       </div>
 
-      {/* DOSYA YÜKLEME (ESKİ YAPIDAN GERİ GELDİ) */}
+      {/* DOSYA YÜKLEME */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <Upload className="w-5 h-5 text-emerald-600" />
@@ -271,7 +241,7 @@ function PaymentStep({
         </div>
       </div>
 
-      {/* Navigasyon Butonları (Aynı kalıyor) */}
+      {/* Navigasyon Butonları */}
       <div className="flex justify-between pt-6">
         <button
           onClick={onPrev}
@@ -283,14 +253,14 @@ function PaymentStep({
         
         <button
           onClick={handleFinalSubmit} 
-          disabled={!isFormValid || isSubmitting} 
+          disabled={!isFormValid || isLoading} 
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            isFormValid && !isSubmitting
+            isFormValid && !isLoading
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isSubmitting ? 'Gönderiliyor...' : 'Rezervasyonu Tamamla'}
+          {isLoading ? 'Gönderiliyor...' : 'Rezervasyonu Tamamla'}
           <CheckCircle className="w-4 h-4" />
         </button>
       </div>
