@@ -15,9 +15,9 @@ interface DateSelectionStepProps {
 }
 
 const fields = [
-  { id: 'saha-1', name: 'Halı Saha 1', price: '200₺/saat', capacity: '10 vs 10' },
-  { id: 'saha-2', name: 'Halı Saha 2', price: '180₺/saat', capacity: '8 vs 8' },
-  { id: 'saha-3', name: 'Halı Saha 3', price: '220₺/saat', capacity: '11 vs 11' },
+  { id: 'Etlik Halı Saha', name: 'Etlik Kampüsü Halı Saha', price: '100₺/saat', capacity: '7 vs 7' },
+  { id: 'Esenboğa Halı Saha', name: 'Esenboğa Kampüsü Halı Saha', price: '100₺/saat', capacity: '7 vs 7' },
+  { id: 'saha-3', name: 'Halı Saha 3', price: '500₺/saat', capacity: '10 vs 10' },
 ];
 
 function DateSelectionStep({ reservationData, updateReservationData, onNext }: DateSelectionStepProps) {

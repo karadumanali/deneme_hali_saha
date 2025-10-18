@@ -7,7 +7,14 @@
     "dev": "react-scripts start",
     "build": "react-scripts build",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+
+    "functions-serve": "firebase emulators:start",
+    "functions-deploy": "firebase deploy --only functions",
+
+    "functions-only-serve": "npm run build --prefix functions && firebase emulators:start --only functions",
+
+    "build-functions": "npm run build --prefix functions" 
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -20,8 +27,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "^18.3.25",
+    "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
@@ -30,7 +37,9 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^4.9.5",
-    "typescript-eslint": "^8.3.0"
+    "typescript-eslint": "^8.3.0",
+    "firebase-admin": "^12.6.0", 
+    "firebase-functions": "^6.0.1"
   },
   "browserslist": {
     "production": [

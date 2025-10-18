@@ -1,7 +1,9 @@
+// services/reservationService.js
 import { 
   collection, 
   addDoc, 
   getDocs, 
+  getDoc,
   doc, 
   updateDoc, 
   query, 
@@ -28,22 +30,24 @@ export const createReservation = async (reservationData, paymentProof) => {
     }
 
     // Rezervasyon verisini Firestore'a kaydet
-   // createReservation fonksiyonu şunları yapar:
-  const docRef = await addDoc(reservationsCollection, {
-    date: reservationData.date,          // "2024-01-20"
-    field: reservationData.field,        // "Saha 1"
-    timeSlot: reservationData.timeSlot,  // "16:00 - 17:00"
-    customerName: reservationData.customerName, // "Ahmet Yılmaz"
-    status: 'pending',                   // Otomatik "pending"
-    paymentProofUrl: paymentProofUrl,    // null (dosya yoksa)
-    paymentProofName: paymentProof ? paymentProof.name : null, // null
-    submittedAt: Timestamp.now(),        // Otomatik timestamp
-    createdAt: Timestamp.now()           // Otomatik timestamp
-});
+    const reservation = {
+      date: reservationData.date,
+      field: reservationData.field,
+      timeSlot: reservationData.timeSlot,
+      customerName: reservationData.customerName,
+      status: 'pending',
+      paymentProofUrl: paymentProofUrl,
+      paymentProofName: paymentProof ? paymentProof.name : null,
+      submittedAt: Timestamp.now(),
+      createdAt: Timestamp.now()
+    };
+
+    const docRef = await addDoc(reservationsCollection, reservation);
 
     return {
       success: true,
       id: docRef.id,
+      data: reservation,
       message: 'Rezervasyon başarıyla oluşturuldu'
     };
   } catch (error) {
@@ -81,6 +85,35 @@ export const getAllReservations = async () => {
       success: false,
       error: error.message,
       data: []
+    };
+  }
+};
+
+// Belirli rezervasyonu getir (LLM’den eklenen GET fonksiyonu)
+export const getReservationById = async (reservationId) => {
+  try {
+    const docRef = doc(db, 'reservations', reservationId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      return {
+        success: true,
+        data: {
+          id: docSnap.id,
+          ...docSnap.data()
+        }
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Rezervasyon bulunamadı'
+      };
+    }
+  } catch (error) {
+    console.error('Rezervasyon getirme hatası:', error);
+    return {
+      success: false,
+      error: error.message
     };
   }
 };

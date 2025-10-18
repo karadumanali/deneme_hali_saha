@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { CreditCard, Upload, User, ChevronLeft, CheckCircle } from 'lucide-react';
-import { createReservation } from '../services/reservationService';
+import { createReservation } from '../services/reservationService'; // createReservation import edildi
+
+// Gerekli Arayüzler (Interface) Sadece Bir Kez Tanımlanır
 
 interface ReservationData {
   date: string;
   field: string;
   timeSlot: string;
   paymentProof?: File;
+  customerName: string; 
 }
 
 interface FieldOwner {
@@ -15,35 +18,39 @@ interface FieldOwner {
   iban: string;
 }
 
-interface PaymentStepProps {
+export interface PaymentStepProps { 
   reservationData: ReservationData;
   updateReservationData: (data: Partial<ReservationData>) => void;
   fieldOwner: FieldOwner | null;
-  setFieldOwner: (owner: FieldOwner) => void;
+  setFieldOwner: React.Dispatch<React.SetStateAction<FieldOwner | null>>; 
   onPrev: () => void;
-  onSubmit: () => void;
 }
 
-// Mock field owners data
-const fieldOwnersData: { [key: string]: FieldOwner } = {
-  'saha-1': { name: 'Ahmet', surname: 'Yılmaz', iban: 'TR33 0006 1005 1978 6457 8413 26' },
-  'saha-2': { name: 'Mehmet', surname: 'Demir', iban: 'TR33 0006 1005 1978 6457 8413 27' },
-  'saha-3': { name: 'Ali', surname: 'Kaya', iban: 'TR33 0006 1005 1978 6457 8413 28' },
+
+// Tüm sahalar için geçerli TEK SAHA SAHİBİ BİLGİSİ
+const SHARED_FIELD_OWNER: FieldOwner = {
+  name: 'Ankara Yıldırım Beyazıt Üniversitesi', 
+  surname: 'SKS Birimi', 
+  iban: 'TR33 0006 1005 1978 6457 8413 26' // Tüm sahaların IBAN'ı aynı
 };
 
-function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFieldOwner, onPrev, onSubmit }: PaymentStepProps) {
+
+function PaymentStep({ 
+  reservationData, 
+  updateReservationData, 
+  // fieldOwner ve setFieldOwner prop'larını artık kullanmayız.
+  onPrev, 
+}: PaymentStepProps) {
+  
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(reservationData.paymentProof || null);
-  const [customerName, setCustomerName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customerName, setCustomerName] = useState(reservationData.customerName || '');
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  // Set field owner based on selected field
-  React.useEffect(() => {
-    if (reservationData.field && fieldOwnersData[reservationData.field]) {
-      setFieldOwner(fieldOwnersData[reservationData.field]);
-    }
-  }, [reservationData.field, setFieldOwner]);
+  // Artık SHARED_FIELD_OWNER sabiti kullanılıyor.
+  // Not: fieldOwner/setFieldOwner prop'larını props listesinden de kaldırdık.
 
+  
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -65,7 +72,7 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
         setUploadedFile(file);
         updateReservationData({ paymentProof: file });
       } else {
-        alert('Lütfen sadece PDF dosyası yükleyin.');
+        console.error('Lütfen sadece PDF dosyası yükleyin.');
       }
     }
   };
@@ -77,37 +84,53 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
         setUploadedFile(file);
         updateReservationData({ paymentProof: file });
       } else {
-        alert('Lütfen sadece PDF dosyası yükleyin.');
+        console.error('Lütfen sadece PDF dosyası yükleyin.');
       }
     }
   };
 
-  const handleSubmit = async () => {
-    if (uploadedFile && customerName.trim()) {
-      setIsSubmitting(true);
-      
-      try {
+  // 🔥 GÜNCEL POST İŞLEMİ
+  const handleFinalSubmit = async () => {
+    const trimmedCustomerName = customerName.trim();
+    if (!uploadedFile || !trimmedCustomerName) {
+      alert("Lütfen dekontunuzu yükleyin ve adınızı/soyadınızı girin.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    const { date, field, timeSlot, paymentProof } = reservationData;
+
+    try {
+        // 🔥🔥🔥 createReservation servisini çağır
         const result = await createReservation(
-          {
-            ...reservationData,
-            customerName: customerName.trim()
-          },
-          uploadedFile
+            { 
+              tarih: date, 
+              saat: timeSlot,
+              sahaAdi: field,
+              adSoyad: trimmedCustomerName, 
+              odemeDurumu: 'Dekont Bekleniyor' 
+            }, 
+            paymentProof 
         );
-        
+
         if (result.success) {
-          onSubmit();
+            alert(`Rezervasyonunuz başarıyla oluşturuldu! Takip ID: ${result.id}`);
+            // Başarılı işlem sonrası yönlendirme mantığı buraya gelir.
         } else {
-          alert('Rezervasyon oluşturulurken hata oluştu: ' + result.error);
+            console.error('Rezervasyon gönderme hatası:', result.error);
+            alert(`Rezervasyon yapılırken hata oluştu: ${result.error}`);
         }
-      } catch (error) {
-        console.error('Rezervasyon hatası:', error);
-        alert('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.');
-      } finally {
+
+    } catch (e) {
+        console.error('Kritik Ağ Hatası:', e);
+        alert('Sunucuya ulaşılamadı. Lütfen tekrar deneyin.');
+    } finally {
         setIsSubmitting(false);
-      }
     }
   };
+
+  const isFormValid = uploadedFile && customerName.trim();
 
   return (
     <div className="space-y-8">
@@ -130,14 +153,13 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
           </div>
           <div>
             <span className="text-gray-500">Saat:</span>
-            <div className="font-medium">{reservationData.timeSlot}</div>
+            <div className="font-medium">{reservationData.timeSlot.split('-').join('.00-')}.00</div>
           </div>
         </div>
       </div>
 
-      {/* Saha Sahibi Bilgileri */}
-      {fieldOwner && (
-        <div className="space-y-4">
+      {/* SAHA SAHİBİ BİLGİLERİ (TEK IBAN) */}
+      <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <User className="w-5 h-5 text-emerald-600" />
             <h3 className="text-lg font-semibold text-gray-700">Saha Sahibi Bilgileri</h3>
@@ -150,7 +172,7 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
                   Ad Soyad
                 </label>
                 <div className="p-3 bg-gray-50 rounded-lg border">
-                  {fieldOwner.name} {fieldOwner.surname}
+                  {SHARED_FIELD_OWNER.name} {SHARED_FIELD_OWNER.surname}
                 </div>
               </div>
               
@@ -159,7 +181,7 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
                   IBAN Numarası
                 </label>
                 <div className="p-3 bg-gray-50 rounded-lg border font-mono text-sm">
-                  {fieldOwner.iban}
+                  {SHARED_FIELD_OWNER.iban}
                 </div>
               </div>
             </div>
@@ -170,10 +192,9 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
               </p>
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
-      {/* Müşteri Bilgileri */}
+      {/* KİŞİ BİLGİLERİ (ESKİ YAPIDAN GERİ GELDİ) */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <User className="w-5 h-5 text-emerald-600" />
@@ -197,7 +218,7 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
         </div>
       </div>
 
-      {/* Dosya Yükleme */}
+      {/* DOSYA YÜKLEME (ESKİ YAPIDAN GERİ GELDİ) */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <Upload className="w-5 h-5 text-emerald-600" />
@@ -246,7 +267,7 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
         </div>
       </div>
 
-      {/* Navigasyon Butonları */}
+      {/* Navigasyon Butonları (Aynı kalıyor) */}
       <div className="flex justify-between pt-6">
         <button
           onClick={onPrev}
@@ -257,10 +278,10 @@ function PaymentStep({ reservationData, updateReservationData, fieldOwner, setFi
         </button>
         
         <button
-          onClick={handleSubmit}
-          disabled={!uploadedFile || !customerName.trim() || isSubmitting}
+          onClick={handleFinalSubmit} 
+          disabled={!isFormValid || isSubmitting} 
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            uploadedFile && customerName.trim() && !isSubmitting
+            isFormValid && !isSubmitting
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
