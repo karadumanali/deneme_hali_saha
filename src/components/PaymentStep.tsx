@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { CreditCard, Upload, User, ChevronLeft, CheckCircle } from 'lucide-react';
-// import { createReservation } from '../services/reservationService'; // Bu artık App.tsx'teki onSubmit'in içinde yapılıyor
 
-// Gerekli Arayüzler (Interface) 
 interface ReservationData {
   date: string;
   field: string;
@@ -17,26 +15,21 @@ interface FieldOwner {
   iban: string;
 }
 
-// 🔥 KESİN ÇÖZÜM: onSubmit ve isLoading prop'ları PaymentStepProps arayüzüne ekleniyor
 export interface PaymentStepProps { 
   reservationData: ReservationData;
   updateReservationData: (data: Partial<ReservationData>) => void;
   fieldOwner: FieldOwner | null;
-  // setFieldOwner artık Dispatch tipinde olması gerekiyor, ama App.tsx'teki haliyle uyumlu tutuyorum.
   setFieldOwner: React.Dispatch<React.SetStateAction<FieldOwner | null>>; 
   onPrev: () => void;
-  onSubmit: () => Promise<void>; // 👈 HATA ÇÖZÜLDÜ
-  isLoading: boolean;              // 👈 HATA ÇÖZÜLDÜ
+  onSubmit: () => Promise<void>;
+  isLoading: boolean;
 }
 
-
-// Tüm sahalar için geçerli TEK SAHA SAHİBİ BİLGİSİ
 const SHARED_FIELD_OWNER: FieldOwner = {
   name: 'Ankara Yıldırım Beyazıt Üniversitesi', 
   surname: 'SKS Birimi', 
   iban: 'TR33 0006 1005 1978 6457 8413 26' 
 };
-
 
 function PaymentStep({ 
   reservationData, 
@@ -49,7 +42,6 @@ function PaymentStep({
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(reservationData.paymentProof || null);
   const [customerName, setCustomerName] = useState(reservationData.customerName || '');
-  
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -68,11 +60,11 @@ function PaymentStep({
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
         setUploadedFile(file);
         updateReservationData({ paymentProof: file });
       } else {
-        console.error('Lütfen sadece PDF dosyası yükleyin.');
+        alert('Lütfen PDF veya resim dosyası yükleyin.');
       }
     }
   };
@@ -80,28 +72,53 @@ function PaymentStep({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
         setUploadedFile(file);
         updateReservationData({ paymentProof: file });
       } else {
-        console.error('Lütfen sadece PDF dosyası yükleyin.');
+        alert('Lütfen PDF veya resim dosyası yükleyin.');
       }
     }
   };
 
+  // customerName her değiştiğinde reservationData'yı güncelle
+  const handleCustomerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setCustomerName(name);
+    updateReservationData({ customerName: name });
+  };
+
   const handleFinalSubmit = async () => {
     const trimmedCustomerName = customerName.trim();
-    if (!uploadedFile || !trimmedCustomerName) {
-      // alert yerine daha iyi bir hata mesajı sistemi kullanın
-      alert("Lütfen dekontunuzu yükleyin ve adınızı/soyadınızı girin."); 
+    
+    if (!uploadedFile) {
+      alert("Lütfen dekontunuzu yükleyin!");
       return;
     }
     
-    // customerName'i reservationData'ya ekle
-    updateReservationData({ customerName: trimmedCustomerName });
+    if (!trimmedCustomerName) {
+      alert("Lütfen adınızı ve soyadınızı girin!");
+      return;
+    }
+    
+    // Son kez güncelle
+    updateReservationData({ 
+      customerName: trimmedCustomerName,
+      paymentProof: uploadedFile 
+    });
+    
+    console.log('Form gönderiliyor:', {
+      customerName: trimmedCustomerName,
+      fileName: uploadedFile.name,
+      date: reservationData.date,
+      field: reservationData.field,
+      timeSlot: reservationData.timeSlot
+    });
 
-    // App.tsx'ten gelen onSubmit fonksiyonunu çağır
-    await onSubmit();
+    // Biraz bekle ki state güncellensin
+    setTimeout(async () => {
+      await onSubmit();
+    }, 100);
   };
 
   const isFormValid = uploadedFile && customerName.trim();
@@ -132,7 +149,7 @@ function PaymentStep({
         </div>
       </div>
 
-      {/* SAHA SAHİBİ BİLGİLERİ (TEK IBAN) */}
+      {/* SAHA SAHİBİ BİLGİLERİ */}
       <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <User className="w-5 h-5 text-emerald-600" />
@@ -162,7 +179,7 @@ function PaymentStep({
             
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <strong>Önemli:</strong> Ödemeyi yukarıdaki IBAN'a yaptıktan sonra dekontunuzu PDF olarak yükleyin.
+                <strong>Önemli:</strong> Ödemeyi yukarıdaki IBAN'a yaptıktan sonra dekontunuzu PDF veya resim olarak yükleyin.
               </p>
             </div>
           </div>
@@ -183,11 +200,14 @@ function PaymentStep({
             <input
               type="text"
               value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
+              onChange={handleCustomerNameChange}
               placeholder="Adınızı ve soyadınızı girin"
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               required
             />
+            {customerName.trim() && (
+              <p className="text-xs text-green-600 mt-1">✓ İsim kaydedildi: {customerName}</p>
+            )}
           </div>
         </div>
       </div>
@@ -214,7 +234,7 @@ function PaymentStep({
         >
           <input
             type="file"
-            accept=".pdf"
+            accept=".pdf,image/*"
             onChange={handleFileSelect}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
@@ -225,6 +245,9 @@ function PaymentStep({
               <div>
                 <p className="font-medium text-emerald-700">{uploadedFile.name}</p>
                 <p className="text-sm text-emerald-600">Dosya başarıyla yüklendi</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Boyut: {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
               </div>
             </div>
           ) : (
@@ -233,7 +256,7 @@ function PaymentStep({
               <div>
                 <p className="text-lg font-medium text-gray-700">Dekont dosyanızı yükleyin</p>
                 <p className="text-sm text-gray-500">
-                  PDF dosyasını sürükleyin veya tıklayın
+                  PDF veya resim dosyasını sürükleyin veya tıklayın
                 </p>
               </div>
             </div>
@@ -245,7 +268,8 @@ function PaymentStep({
       <div className="flex justify-between pt-6">
         <button
           onClick={onPrev}
-          className="flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          disabled={isLoading}
+          className="flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           <ChevronLeft className="w-4 h-4" />
           Geri

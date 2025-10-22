@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Calendar, MapPin, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, MapPin, ChevronRight, Lock, AlertCircle } from 'lucide-react';
+import { checkIfBlocked } from '../services/blockService';
 
 interface ReservationData {
   date: string;
@@ -23,6 +24,39 @@ const fields = [
 function DateSelectionStep({ reservationData, updateReservationData, onNext }: DateSelectionStepProps) {
   const [selectedDate, setSelectedDate] = useState(reservationData.date);
   const [selectedField, setSelectedField] = useState(reservationData.field);
+  const [blockWarning, setBlockWarning] = useState<string | null>(null);
+  const [isDateBlocked, setIsDateBlocked] = useState(false);
+
+  // Tarih veya saha değiştiğinde kilitleme kontrolü yap
+  useEffect(() => {
+    if (selectedDate && selectedField) {
+      checkDateBlock();
+    } else {
+      setBlockWarning(null);
+      setIsDateBlocked(false);
+    }
+  }, [selectedDate, selectedField]);
+
+  const checkDateBlock = async () => {
+    if (!selectedDate || !selectedField) return;
+
+    try {
+      // 'all' time slot ile kontrol et (tüm gün kilitli mi?)
+      const result = await checkIfBlocked(selectedDate, selectedField, 'all');
+      
+      if (result.isBlocked) {
+        setBlockWarning(result.reason || 'Bu tarih için rezervasyon alınmamaktadır.');
+        setIsDateBlocked(true);
+      } else {
+        setBlockWarning(null);
+        setIsDateBlocked(false);
+      }
+    } catch (error) {
+      console.error('Kilitleme kontrolü hatası:', error);
+      setBlockWarning(null);
+      setIsDateBlocked(false);
+    }
+  };
 
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const date = event.target.value;
@@ -36,12 +70,11 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
   };
 
   const handleNext = () => {
-    if (selectedDate && selectedField) {
+    if (selectedDate && selectedField && !isDateBlocked) {
       onNext();
     }
   };
 
-  // Bugünden itibaren 30 gün sonrasına kadar tarih seçimi
   const today = new Date();
   const maxDate = new Date();
   maxDate.setDate(today.getDate() + 30);
@@ -57,6 +90,17 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
         <p className="text-gray-600">Oynamak istediğiniz tarihi ve sahayı seçin</p>
       </div>
 
+      {/* Kilitleme Uyarısı */}
+      {blockWarning && (
+        <div className="p-4 bg-gray-800 border border-gray-700 text-white rounded-lg flex items-start gap-3 animate-pulse">
+          <Lock className="w-6 h-6 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-lg mb-1">Bu Tarih Kilitlenmiştir</p>
+            <p className="text-gray-200">{blockWarning}</p>
+          </div>
+        </div>
+      )}
+
       {/* Tarih Seçimi */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
@@ -71,7 +115,11 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
             onChange={handleDateChange}
             min={formatDate(today)}
             max={formatDate(maxDate)}
-            className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg"
+            className={`w-full p-4 border rounded-lg focus:ring-2 focus:border-transparent text-lg ${
+              isDateBlocked 
+                ? 'border-red-500 bg-red-50 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-emerald-500'
+            }`}
           />
         </div>
       </div>
@@ -109,13 +157,24 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
         </div>
       </div>
 
+      {/* Bilgilendirme Mesajı */}
+      {selectedDate && selectedField && !isDateBlocked && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-800">
+            Seçtiğiniz tarih ve saha için müsait saatleri görmek için ilerleyin. 
+            Bazı saatler dolu veya kilitli olabilir.
+          </p>
+        </div>
+      )}
+
       {/* İleri Butonu */}
       <div className="flex justify-end pt-6">
         <button
           onClick={handleNext}
-          disabled={!selectedDate || !selectedField}
+          disabled={!selectedDate || !selectedField || isDateBlocked}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            selectedDate && selectedField
+            selectedDate && selectedField && !isDateBlocked
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}

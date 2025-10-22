@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Dispatch } from 'react';
-import { User } from 'firebase/auth'; // Firebase User tipini dahil ettik
+import { User } from 'firebase/auth';
 import { Calendar, MapPin, Clock, CreditCard, Upload, CheckCircle, XCircle } from 'lucide-react';
 import DateSelectionStep from './components/DateSelectionStep';
 import TimeSelectionStep from './components/TimeSelectionStep';
@@ -11,7 +11,7 @@ import AdminLogin from './components/AdminLogin';
 import { onAuthStateChange, logoutAdmin } from './services/authService'; 
 
 import { db, storage } from './firebase/config';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ReservationData {
@@ -46,16 +46,15 @@ function App() {
   
   const isUrlAdmin = window.location.pathname.includes('/admin');
 
-  // Hata 7006 Düzeltildi: user parametresine tipi (User | null) ekledik
   useEffect(() => {
-    if (!isUrlAdmin) return; 
-    
+    // Admin sayfasında olsak da olmasak da auth durumunu izle
     const unsubscribe = onAuthStateChange((user: User | null) => { 
         setIsAdminLoggedIn(!!user);
+        console.log('Auth durumu değişti:', user ? 'Giriş yapıldı' : 'Çıkış yapıldı');
     });
     
     return () => unsubscribe();
-  }, [isUrlAdmin]);
+  }, []);
 
 
   const handleLogout = async () => {
@@ -88,33 +87,47 @@ function App() {
     setError(null);
     setIsLoading(true);
 
+    console.log('=== REZERVASYON GÖNDERİLİYOR ===');
+    console.log('Rezervasyon Verisi:', reservationData);
+
     try {
       let downloadURL: string | undefined = undefined;
 
       // 1. DEKONTU FIREBASE STORAGE'A YÜKLE
       if (reservationData.paymentProof) {
         const file = reservationData.paymentProof;
+        console.log('Dekont yükleniyor:', file.name);
         const storageRef = ref(storage, `payment_proofs/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file); 
-        downloadURL = await getDownloadURL(snapshot.ref); 
+        downloadURL = await getDownloadURL(snapshot.ref);
+        console.log('Dekont yüklendi:', downloadURL);
+      } else {
+        console.warn('⚠️ Dekont dosyası bulunamadı!');
       }
 
       // 2. VERİYİ FIRESTORE'A KAYDET
+      const now = Timestamp.now();
       const reservationDoc = {
-        date: reservationData.date,
-        field: reservationData.field,
-        timeSlot: reservationData.timeSlot,
-        customerName: reservationData.customerName,
-        paymentProofURL: downloadURL, 
-        status: 'Beklemede',
-        createdAt: new Date(),
+        date: reservationData.date || null,
+        field: reservationData.field || null,
+        timeSlot: reservationData.timeSlot || null,
+        customerName: reservationData.customerName || null,
+        paymentProofURL: downloadURL || null, 
+        paymentProofUrl: downloadURL || null,
+        paymentProofName: reservationData.paymentProof?.name || null,
+        status: 'pending',
+        createdAt: now,
+        submittedAt: now,
       };
 
-      await addDoc(collection(db, 'reservations'), reservationDoc);
+      console.log('Firestore\'a kaydedilecek veri:', reservationDoc);
+
+      const docRef = await addDoc(collection(db, 'reservations'), reservationDoc);
+      console.log('✅ Rezervasyon kaydedildi! ID:', docRef.id);
 
       setIsSubmitted(true);
     } catch (e) {
-      console.error("Rezervasyon oluşturulurken hata:", e);
+      console.error("❌ Rezervasyon oluşturulurken hata:", e);
       setError("Rezervasyon oluşturulurken beklenmedik bir hata oluştu.");
     } finally {
       setIsLoading(false);
@@ -123,7 +136,6 @@ function App() {
 
 
   const renderAdminContent = () => {
-      // Auth durumu hala belirleniyor
       if (isAdminLoggedIn === null) {
           return (
               <div className="flex justify-center items-center h-screen">
@@ -132,12 +144,10 @@ function App() {
           );
       }
 
-      // Giriş yapmadıysa: Admin Giriş Sayfası
       if (!isAdminLoggedIn) {
           return <AdminLogin onLoginSuccess={() => { /* State otomatik güncellenecek */ }} />;
       }
       
-      // Giriş yaptıysa: Admin Paneli ve Çıkış Butonu
       return (
           <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50">
               <div className="container mx-auto px-4 py-8">
@@ -164,12 +174,10 @@ function App() {
       );
   };
 
-  // Uygulamanın ana render fonksiyonu
   if (isUrlAdmin) {
       return renderAdminContent();
   }
 
-  // ... (Geri kalan rezervasyon akışı)
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50 flex items-center justify-center">
@@ -186,6 +194,7 @@ function App() {
               <p><strong>Tarih:</strong> {reservationData.date}</p>
               <p><strong>Saha:</strong> {reservationData.field}</p>
               <p><strong>Saat:</strong> {reservationData.timeSlot}</p>
+              <p><strong>Ad Soyad:</strong> {reservationData.customerName}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -226,7 +235,6 @@ function App() {
           </button>
         </div>
         
-        {/* Yükleniyor ve Hata Mesajları */}
         {(isLoading || error) && (
           <div className="max-w-4xl mx-auto mb-4 p-4 rounded-lg text-center shadow-md">
             {isLoading && <p className="text-blue-600">Rezervasyon gönderiliyor...</p>}

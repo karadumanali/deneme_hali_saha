@@ -15,31 +15,23 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config.js';
 
-// Rezervasyon koleksiyonu referansı
 const reservationsCollection = collection(db, 'reservations');
 
-/**
- * Yeni rezervasyon oluşturur ve dekontu Storage'a yükler.
- * ... (Bu fonksiyon aynı kalır, null düzeltmeleri yapıldı)
- */
 export const createReservation = async (reservationData, paymentProof) => {
   try {
     let paymentProofUrl = null;
     
-    // Dekont dosyasını Firebase Storage'a yükle
     if (paymentProof) {
       const storageRef = ref(storage, `payment-proofs/${Date.now()}_${paymentProof.name}`);
       const snapshot = await uploadBytes(storageRef, paymentProof);
       paymentProofUrl = await getDownloadURL(snapshot.ref);
     }
 
-    // Rezervasyon verisini Firestore'a kaydet (Null düzeltmeleri ile)
     const reservation = {
       date: reservationData.date ?? null, 
       field: reservationData.field ?? null,
       timeSlot: reservationData.timeSlot ?? null,
       customerName: reservationData.customerName ?? null,
-      
       status: 'pending',
       paymentProofUrl: paymentProofUrl,
       paymentProofName: paymentProof ? paymentProof.name : null,
@@ -64,10 +56,6 @@ export const createReservation = async (reservationData, paymentProof) => {
   }
 };
 
-/**
- * Rezervasyon durumunu günceller ve eğer onaylandıysa, çakışan diğer bekleyenleri reddeder.
- * ... (Bu fonksiyon aynı kalır, toplu reddetme mantığı zaten içeriyor)
- */
 export const updateReservationStatus = async (reservationId, status) => {
     try {
         const batch = writeBatch(db);
@@ -83,13 +71,12 @@ export const updateReservationStatus = async (reservationId, status) => {
             if (currentDoc.exists()) {
                 const data = currentDoc.data();
                 
-                // Aynı tarih, saat ve saha için BEKLEYEN rezervasyonları bul
                 const q = query(
                     reservationsCollection,
                     where('date', '==', data.date),
                     where('field', '==', data.field),
                     where('timeSlot', '==', data.timeSlot),
-                    where('status', '==', 'pending')
+                    where('status', 'in', ['pending', 'Beklemede']) // Her iki durumu da kontrol et
                 );
                 
                 const conflictingSnapshot = await getDocs(q);
@@ -122,23 +109,14 @@ export const updateReservationStatus = async (reservationId, status) => {
     }
 };
 
-
-/**
- * Belirli tarih, saha ve saat için kaç tane onaylanmış ve bekleyen rezervasyon olduğunu sayar.
- * @param {string} date
- * @param {string} field
- * @param {string} timeSlot
- * @returns {Promise<{success: boolean, approvedCount: number, pendingCount: number}>}
- */
 export const checkAvailability = async (date, field, timeSlot) => {
   try {
-    // Aynı tarih, saha ve saat için hem 'approved' hem de 'pending' durumlarını kontrol ediyoruz
     const q = query(
       reservationsCollection,
       where('date', '==', date),
       where('field', '==', field),
       where('timeSlot', '==', timeSlot),
-      where('status', 'in', ['approved', 'pending']) // Hem onaylanmış hem bekleyenleri getir
+      where('status', 'in', ['approved', 'pending', 'Beklemede']) // Her üç durumu da kontrol et
     );
     
     const querySnapshot = await getDocs(q);
@@ -150,7 +128,7 @@ export const checkAvailability = async (date, field, timeSlot) => {
         const status = doc.data().status;
         if (status === 'approved') {
             approvedCount++;
-        } else if (status === 'pending') {
+        } else if (status === 'pending' || status === 'Beklemede') {
             pendingCount++;
         }
     });
@@ -170,21 +148,42 @@ export const checkAvailability = async (date, field, timeSlot) => {
   }
 };
 
-// --- Diğer fonksiyonlar aynı kalır ---
 export const getAllReservations = async () => {
     try {
-        const q = query(reservationsCollection, orderBy('submittedAt', 'desc'));
+        const q = query(reservationsCollection, orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const reservations = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+            
+            // submittedAt veya createdAt'i kontrol et
+            let submittedAtFormatted = 'Bilinmiyor';
+            const submittedAtField = data.submittedAt || data.createdAt;
+            
+            if (submittedAtField) {
+                try {
+                    submittedAtFormatted = submittedAtField.toDate?.()?.toLocaleString('tr-TR') || submittedAtField;
+                } catch (e) {
+                    console.warn('Tarih formatlanırken hata:', e);
+                }
+            }
+            
             reservations.push({
                 id: doc.id,
-                ...data,
-                submittedAt: data.submittedAt?.toDate?.()?.toLocaleString('tr-TR') || data.submittedAt
+                date: data.date || '',
+                field: data.field || '',
+                timeSlot: data.timeSlot || '',
+                customerName: data.customerName || '',
+                status: data.status || 'pending',
+                paymentProof: data.paymentProof || '',
+                paymentProofName: data.paymentProofName || null,
+                paymentProofUrl: data.paymentProofUrl || data.paymentProofURL || null, // Her iki ismi de kontrol et
+                submittedAt: submittedAtFormatted
             });
         });
+
+        console.log('Yüklenen rezervasyonlar:', reservations); // Debug için
 
         return {
             success: true,
