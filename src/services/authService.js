@@ -5,10 +5,8 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 export const loginAdmin = async (email, password) => {
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // Kullanıcı giriş yaptıktan sonra Auth nesnesinde saklanacaktır
         return userCredential.user;
     } catch (error) {
-        // Hata durumlarını daha spesifik yakalayabilirsiniz (örn: wrong-password, user-not-found)
         console.error("Giriş hatası:", error.code, error.message);
         throw new Error("Giriş Başarısız: E-posta veya şifre yanlış.");
     }
@@ -24,8 +22,12 @@ export const logoutAdmin = async () => {
     }
 };
 
-// Yönetici Durumunu İzleme (Opsiyonel ama çok kullanışlı)
-// Kullanıcı durumunda bir değişiklik olduğunda (giriş/çıkış) tetiklenir.
+// Şu anki kullanıcıyı getir (Email almak için)
+export const getCurrentUser = () => {
+    return auth.currentUser;
+};
+
+// Yönetici Durumunu İzleme
 export const onAuthStateChange = (callback) => {
     return auth.onAuthStateChanged(callback);
 };

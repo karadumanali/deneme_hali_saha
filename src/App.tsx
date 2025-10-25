@@ -9,6 +9,7 @@ import StepIndicator from './components/StepIndicator';
 
 import AdminLogin from './components/AdminLogin'; 
 import { onAuthStateChange, logoutAdmin } from './services/authService'; 
+import { sendNewReservationEmail } from './services/emailService';
 
 import { db, storage } from './firebase/config';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -124,6 +125,26 @@ function App() {
 
       const docRef = await addDoc(collection(db, 'reservations'), reservationDoc);
       console.log('✅ Rezervasyon kaydedildi! ID:', docRef.id);
+
+      // 3. ADMİN'E EMAİL BİLDİRİMİ GÖNDER
+      try {
+        console.log('📧 Admin\'e email bildirimi gönderiliyor...');
+        
+        const emailSent = await sendNewReservationEmail({
+          customerName: reservationData.customerName,
+          date: reservationData.date,
+          field: reservationData.field,
+          timeSlot: reservationData.timeSlot
+        });
+
+        if (emailSent) {
+          console.log('✅ Admin\'e bildirim emaili gönderildi!');
+        } else {
+          console.warn('⚠️ Email gönderilemedi ama rezervasyon kaydedildi.');
+        }
+      } catch (emailError) {
+        console.error('Email gönderme hatası (rezervasyon yine de kaydedildi):', emailError);
+      }
 
       setIsSubmitted(true);
     } catch (e) {
