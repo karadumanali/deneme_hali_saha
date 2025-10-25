@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Trash2, Plus, Calendar, MapPin, Clock, AlertCircle } from 'lucide-react';
+import { Lock, Trash2, Plus, Calendar, MapPin, Clock, AlertCircle, CheckSquare, Square } from 'lucide-react';
 import { createBlock, getAllBlocks, deleteBlock } from '../services/blockService';
 
 interface Block {
@@ -19,7 +19,6 @@ const fields = [
 ];
 
 const timeSlots = [
-  { id: 'all', label: 'Tüm Saatler' },
   { id: '16-17', label: '16:00 - 17:00' },
   { id: '17-18', label: '17:00 - 18:00' },
   { id: '18-19', label: '18:00 - 19:00' },
@@ -33,12 +32,11 @@ function BlockManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   
-  // Form state
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
     field: 'all',
-    timeSlot: 'all',
+    selectedTimeSlots: [] as string[],
     reason: ''
   });
 
@@ -60,6 +58,26 @@ function BlockManager() {
     }
   };
 
+  const toggleTimeSlot = (slotId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedTimeSlots: prev.selectedTimeSlots.includes(slotId)
+        ? prev.selectedTimeSlots.filter(id => id !== slotId)
+        : [...prev.selectedTimeSlots, slotId]
+    }));
+  };
+
+  const toggleAllTimeSlots = () => {
+    if (formData.selectedTimeSlots.length === timeSlots.length) {
+      setFormData(prev => ({ ...prev, selectedTimeSlots: [] }));
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        selectedTimeSlots: timeSlots.map(slot => slot.id) 
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -68,28 +86,52 @@ function BlockManager() {
       return;
     }
 
-    // Tarih kontrolü
+    if (formData.selectedTimeSlots.length === 0) {
+      alert('Lütfen en az bir saat dilimi seçin!');
+      return;
+    }
+
     if (new Date(formData.startDate) > new Date(formData.endDate)) {
       alert('Bitiş tarihi başlangıç tarihinden önce olamaz!');
       return;
     }
 
     try {
-      const result = await createBlock(formData);
-      if (result.success) {
-        alert('Kilitleme başarıyla oluşturuldu');
-        setShowForm(false);
-        setFormData({
-          startDate: '',
-          endDate: '',
-          field: 'all',
-          timeSlot: 'all',
-          reason: ''
-        });
-        loadBlocks();
-      } else {
-        alert('Hata: ' + result.error);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const timeSlot of formData.selectedTimeSlots) {
+        const blockData = {
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          field: formData.field,
+          timeSlot: timeSlot,
+          reason: formData.reason
+        };
+
+        const result = await createBlock(blockData);
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       }
+
+      if (failCount === 0) {
+        alert(`✅ ${successCount} adet kilitleme başarıyla oluşturuldu!`);
+      } else {
+        alert(`⚠️ ${successCount} başarılı, ${failCount} başarısız.`);
+      }
+
+      setShowForm(false);
+      setFormData({
+        startDate: '',
+        endDate: '',
+        field: 'all',
+        selectedTimeSlots: [],
+        reason: ''
+      });
+      loadBlocks();
     } catch (error) {
       console.error('Kilitleme oluşturma hatası:', error);
       alert('Beklenmeyen bir hata oluştu');
@@ -120,6 +162,7 @@ function BlockManager() {
   };
 
   const getTimeSlotLabel = (timeSlotId: string) => {
+    if (timeSlotId === 'all') return 'Tüm Saatler';
     return timeSlots.find(t => t.id === timeSlotId)?.label || timeSlotId;
   };
 
@@ -145,7 +188,6 @@ function BlockManager() {
 
   return (
     <div className="space-y-6">
-      {/* Başlık ve Yeni Kilitleme Butonu */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Lock className="w-6 h-6 text-red-600" />
@@ -160,7 +202,6 @@ function BlockManager() {
         </button>
       </div>
 
-      {/* Açıklama Kutusu */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -169,14 +210,13 @@ function BlockManager() {
             <ul className="list-disc list-inside space-y-1">
               <li>Belirli tarih, saha veya saatleri rezervasyona kapatabilirsiniz</li>
               <li>"Tüm Sahalar" seçeneği ile tüm sahaları aynı anda kilitleyebilirsiniz</li>
-              <li>"Tüm Saatler" seçeneği ile günün tüm saatlerini kilitleyebilirsiniz</li>
+              <li>"Tüm Saatler" seçeneği ile günün tüm saatlerini veya belirli saatleri kilitleyebilirsiniz</li>
               <li>Kilitleme sebebi kullanıcılara gösterilecektir</li>
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Kilitleme Formu */}
       {showForm && (
         <div className="bg-white rounded-lg shadow-md border p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Yeni Kilitleme Oluştur</h3>
@@ -208,7 +248,7 @@ function BlockManager() {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Saha
                 </label>
@@ -222,21 +262,61 @@ function BlockManager() {
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Saat Dilimi
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Saat Dilimleri * ({formData.selectedTimeSlots.length} seçili)
                 </label>
-                <select
-                  value={formData.timeSlot}
-                  onChange={(e) => setFormData({...formData, timeSlot: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                <button
+                  type="button"
+                  onClick={toggleAllTimeSlots}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
                 >
-                  {timeSlots.map(slot => (
-                    <option key={slot.id} value={slot.id}>{slot.label}</option>
-                  ))}
-                </select>
+                  {formData.selectedTimeSlots.length === timeSlots.length ? (
+                    <>
+                      <Square className="w-4 h-4" />
+                      Tümünü Kaldır
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="w-4 h-4" />
+                      Tümünü Seç
+                    </>
+                  )}
+                </button>
               </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border border-gray-300 rounded-lg bg-gray-50">
+                {timeSlots.map(slot => {
+                  const isSelected = formData.selectedTimeSlots.includes(slot.id);
+                  return (
+                    <label
+                      key={slot.id}
+                      className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-200 hover:border-red-300 bg-white'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleTimeSlot(slot.id)}
+                        className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <span className={`text-sm font-medium ${isSelected ? 'text-red-700' : 'text-gray-700'}`}>
+                        {slot.label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {formData.selectedTimeSlots.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">⚠️ En az bir saat dilimi seçmelisiniz</p>
+              )}
             </div>
 
             <div>
@@ -266,16 +346,25 @@ function BlockManager() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                disabled={formData.selectedTimeSlots.length === 0}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  formData.selectedTimeSlots.length > 0
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
-                Kilitlemeyi Oluştur
+                {formData.selectedTimeSlots.length > 1 
+                  ? `${formData.selectedTimeSlots.length} Kilitleme Oluştur`
+                  : formData.selectedTimeSlots.length === 1
+                  ? 'Kilitlemeyi Oluştur'
+                  : 'Saat Seçin'
+                }
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Kilitleme Listesi */}
       <div className="bg-white rounded-lg shadow-md border overflow-hidden">
         <div className="px-6 py-4 border-b bg-gray-50">
           <h3 className="text-lg font-semibold text-gray-800">
