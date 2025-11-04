@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, ChevronRight, Lock, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, ChevronRight, Lock, AlertCircle, X } from 'lucide-react';
 import { checkIfBlocked } from '../services/blockService';
 
 interface ReservationData {
@@ -26,6 +26,7 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
   const [selectedField, setSelectedField] = useState(reservationData.field);
   const [blockWarning, setBlockWarning] = useState<string | null>(null);
   const [isDateBlocked, setIsDateBlocked] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   // Tarih veya saha değiştiğinde kilitleme kontrolü yap
   useEffect(() => {
@@ -70,7 +71,13 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
   };
 
   const handleNext = () => {
-    if (selectedDate && selectedField && !isDateBlocked) {
+    // Eğer tarih kilitliyse modal aç
+    if (isDateBlocked) {
+      setShowBlockModal(true);
+      return;
+    }
+
+    if (selectedDate && selectedField) {
       onNext();
     }
   };
@@ -85,21 +92,52 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
 
   return (
     <div className="space-y-8">
+      {/* Kilitleme Bilgi Modalı */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowBlockModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-gray-100 rounded-lg">
+                <Lock className="w-8 h-8 text-gray-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Tarih Kilitli
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Seçtiğiniz tarih yönetici tarafından kilitlenmiştir.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border-l-4 border-gray-600 p-4 rounded-r-lg mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Kilitleme Sebebi:</p>
+              <p className="text-sm text-gray-800 leading-relaxed">
+                {blockWarning}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowBlockModal(false)}
+              className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+            >
+              Anladım
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Tarih ve Saha Seçimi</h2>
         <p className="text-gray-600">Oynamak istediğiniz tarihi ve sahayı seçin</p>
       </div>
-
-      {/* Kilitleme Uyarısı */}
-      {blockWarning && (
-        <div className="p-4 bg-gray-800 border border-gray-700 text-white rounded-lg flex items-start gap-3 animate-pulse">
-          <Lock className="w-6 h-6 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-lg mb-1">Bu Tarih Kilitlenmiştir</p>
-            <p className="text-gray-200">{blockWarning}</p>
-          </div>
-        </div>
-      )}
 
       {/* Tarih Seçimi */}
       <div className="space-y-4">
@@ -115,11 +153,7 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
             onChange={handleDateChange}
             min={formatDate(today)}
             max={formatDate(maxDate)}
-            className={`w-full p-4 border rounded-lg focus:ring-2 focus:border-transparent text-lg ${
-              isDateBlocked 
-                ? 'border-red-500 bg-red-50 focus:ring-red-500' 
-                : 'border-gray-300 focus:ring-emerald-500'
-            }`}
+            className="w-full p-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg transition-all"
           />
         </div>
       </div>
@@ -172,9 +206,9 @@ function DateSelectionStep({ reservationData, updateReservationData, onNext }: D
       <div className="flex justify-end pt-6">
         <button
           onClick={handleNext}
-          disabled={!selectedDate || !selectedField || isDateBlocked}
+          disabled={!selectedDate || !selectedField}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            selectedDate && selectedField && !isDateBlocked
+            selectedDate && selectedField
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}

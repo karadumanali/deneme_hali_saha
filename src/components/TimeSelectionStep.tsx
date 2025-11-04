@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, ChevronLeft, ChevronRight, AlertTriangle, Lock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, AlertTriangle, Lock, X } from 'lucide-react';
 import { checkAvailability } from '../services/reservationService';
 import { checkIfBlocked } from '../services/blockService';
 
@@ -37,6 +37,8 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
   const [selectedTime, setSelectedTime] = useState(reservationData.timeSlot);
   const [slotStatuses, setSlotStatuses] = useState<{[key: string]: SlotStatus}>({});
   const [loading, setLoading] = useState(true);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [modalBlockReason, setModalBlockReason] = useState('');
 
   React.useEffect(() => {
     if (reservationData.date && reservationData.field) {
@@ -84,7 +86,15 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
     setLoading(false);
   };
 
-  const handleTimeSelect = (timeId: string) => {
+  const handleTimeSelect = (timeId: string, status: SlotStatus) => {
+    // Eğer kilitli ise modal aç
+    if (status.isBlocked) {
+      setModalBlockReason(status.blockReason || 'Bu saat yönetici tarafından kilitlenmiştir.');
+      setShowBlockModal(true);
+      return;
+    }
+
+    // Normal akış
     setSelectedTime(timeId);
     updateReservationData({ timeSlot: timeId });
   };
@@ -96,13 +106,13 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
   };
   
   const getSlotDisplay = (status: SlotStatus) => {
-    // Önce kilitleme kontrolü (en yüksek öncelik)
+    // Önce kilitleme kontrolü (GRİ RENK KORUNUYOR)
     if (status.isBlocked) {
       return {
-        text: 'KİTLİ',
-        badgeClass: 'bg-gray-800 text-white',
-        buttonClass: 'border-gray-500 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60',
-        isDisabled: true,
+        text: 'KİLİTLİ',
+        badgeClass: 'bg-gray-600 text-white',
+        buttonClass: 'border-gray-500 bg-gray-100 text-gray-600 cursor-pointer hover:bg-gray-200',
+        isDisabled: false, // Tıklanabilir olmalı
         showWarning: false,
         icon: <Lock className="w-4 h-4" />
       };
@@ -148,10 +158,54 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
     isApproved: false, 
     hasPending: false 
   };
-  const { isDisabled: isSelectedSlotDisabled } = getSlotDisplay(currentSlotStatus);
+
+  // Seçili saat kilitli mi veya dolu mu kontrol et
+  const isSelectedSlotValid = selectedTime && !currentSlotStatus.isBlocked && !currentSlotStatus.isApproved;
 
   return (
     <div className="space-y-8">
+      {/* Kilitleme Bilgi Modalı */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowBlockModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-gray-100 rounded-lg">
+                <Lock className="w-8 h-8 text-gray-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Saat Kilitli
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Bu saat dilimi yönetici tarafından kilitlenmiştir.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border-l-4 border-gray-600 p-4 rounded-r-lg mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">Kilitleme Sebebi:</p>
+              <p className="text-sm text-gray-800 leading-relaxed">
+                {modalBlockReason}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowBlockModal(false)}
+              className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+            >
+              Anladım
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Saat Dilimi Seçimi</h2>
         <p className="text-gray-600">Oynamak istediğiniz saat dilimini seçin</p>
@@ -171,24 +225,16 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
         </div>
       </div>
 
-      {/* Kilitleme Uyarısı */}
-      {selectedTime && currentSlotStatus.isBlocked && (
-        <div className="p-4 bg-gray-800 border border-gray-700 text-white rounded-lg flex items-start gap-3">
-          <Lock className="w-6 h-6 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-lg mb-1">Bu Saat Kilitlenmiştir</p>
-            <p className="text-gray-200">{currentSlotStatus.blockReason}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Bekleyen Randevu Uyarısı */}
+      {/* Bekleyen Randevu Uyarısı - SADECE BEKLEYEN İÇİN */}
       {selectedTime && currentSlotStatus.hasPending && !currentSlotStatus.isApproved && !currentSlotStatus.isBlocked && (
-        <div className="p-4 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg flex items-center gap-3 animate-pulse">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <p className="font-medium text-sm">
-            Bu saatte bekleyen bir randevu talebi var. Onaylanırsa, sizin randevunuz otomatik reddedilecektir. Başka bir saat seçmeniz önerilir.
-          </p>
+        <div className="p-4 bg-yellow-50 border-2 border-yellow-400 text-yellow-900 rounded-lg flex items-start gap-3 shadow-md">
+          <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-base mb-1">⚠️ Dikkat!</p>
+            <p className="text-sm">
+              Bu saatte bekleyen bir randevu talebi var. Onaylanırsa, sizin randevunuz otomatik reddedilecektir. Başka bir saat seçmeniz önerilir.
+            </p>
+          </div>
         </div>
       )}
 
@@ -220,9 +266,9 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
               ) : (
                 <button
                   key={slot.id}
-                  onClick={() => !isDisabled && handleTimeSelect(slot.id)}
+                  onClick={() => !isDisabled && handleTimeSelect(slot.id, slotData)}
                   disabled={isDisabled}
-                  className={`p-4 border-2 rounded-lg transition-all ${
+                  className={`w-full p-4 border-2 rounded-lg transition-all ${
                     isDisabled 
                       ? buttonClass 
                       : selectedTime === slot.id
@@ -232,7 +278,7 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
                 >
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{slot.label}</span>
-                    <span className={`text-sm px-2 py-1 rounded flex items-center gap-1 ${badgeClass}`}>
+                    <span className={`text-sm px-3 py-1 rounded-full flex items-center gap-1 ${badgeClass}`}>
                       {icon}
                       {text}
                     </span>
@@ -255,9 +301,9 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
         
         <button
           onClick={handleNext}
-          disabled={!selectedTime || isSelectedSlotDisabled}
+          disabled={!isSelectedSlotValid}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            selectedTime && !isSelectedSlotDisabled
+            isSelectedSlotValid
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
