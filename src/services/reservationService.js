@@ -76,7 +76,7 @@ export const updateReservationStatus = async (reservationId, status) => {
                     where('date', '==', data.date),
                     where('field', '==', data.field),
                     where('timeSlot', '==', data.timeSlot),
-                    where('status', 'in', ['pending', 'Beklemede']) // Her iki durumu da kontrol et
+                    where('status', 'in', ['pending', 'Beklemede'])
                 );
                 
                 const conflictingSnapshot = await getDocs(q);
@@ -109,6 +109,7 @@ export const updateReservationStatus = async (reservationId, status) => {
     }
 };
 
+// GÜNCELLENMİŞ FONKSİYON - Artık müşteri adını da döndürüyor
 export const checkAvailability = async (date, field, timeSlot) => {
   try {
     const q = query(
@@ -116,20 +117,30 @@ export const checkAvailability = async (date, field, timeSlot) => {
       where('date', '==', date),
       where('field', '==', field),
       where('timeSlot', '==', timeSlot),
-      where('status', 'in', ['approved', 'pending', 'Beklemede']) // Her üç durumu da kontrol et
+      where('status', 'in', ['approved', 'pending', 'Beklemede'])
     );
     
     const querySnapshot = await getDocs(q);
     
     let approvedCount = 0;
     let pendingCount = 0;
+    let approvedCustomerName = null;
+    let pendingCustomerName = null;
 
     querySnapshot.docs.forEach((doc) => {
-        const status = doc.data().status;
+        const data = doc.data();
+        const status = data.status;
+        
         if (status === 'approved') {
             approvedCount++;
+            if (!approvedCustomerName) {
+                approvedCustomerName = data.customerName || 'Bilinmeyen Kullanıcı';
+            }
         } else if (status === 'pending' || status === 'Beklemede') {
             pendingCount++;
+            if (!pendingCustomerName) {
+                pendingCustomerName = data.customerName || 'Bilinmeyen Kullanıcı';
+            }
         }
     });
 
@@ -137,13 +148,17 @@ export const checkAvailability = async (date, field, timeSlot) => {
       success: true,
       approvedCount: approvedCount,
       pendingCount: pendingCount,
+      approvedCustomerName: approvedCustomerName,
+      pendingCustomerName: pendingCustomerName
     };
   } catch (error) {
     console.error('Müsaitlik kontrol hatası:', error);
     return {
       success: false,
       approvedCount: 0,
-      pendingCount: 0, 
+      pendingCount: 0,
+      approvedCustomerName: null,
+      pendingCustomerName: null
     };
   }
 };
@@ -157,7 +172,6 @@ export const getAllReservations = async () => {
         querySnapshot.forEach((doc) => {
             const data = doc.data();
             
-            // submittedAt veya createdAt'i kontrol et
             let submittedAtFormatted = 'Bilinmiyor';
             const submittedAtField = data.submittedAt || data.createdAt;
             
@@ -178,12 +192,10 @@ export const getAllReservations = async () => {
                 status: data.status || 'pending',
                 paymentProof: data.paymentProof || '',
                 paymentProofName: data.paymentProofName || null,
-                paymentProofUrl: data.paymentProofUrl || data.paymentProofURL || null, // Her iki ismi de kontrol et
+                paymentProofUrl: data.paymentProofUrl || data.paymentProofURL || null,
                 submittedAt: submittedAtFormatted
             });
         });
-
-        console.log('Yüklenen rezervasyonlar:', reservations); // Debug için
 
         return {
             success: true,

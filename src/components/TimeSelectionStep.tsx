@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, ChevronLeft, ChevronRight, AlertTriangle, Lock, X } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, AlertTriangle, Lock, X, User } from 'lucide-react';
 import { checkAvailability } from '../services/reservationService';
 import { checkIfBlocked } from '../services/blockService';
 
@@ -31,6 +31,8 @@ interface SlotStatus {
   hasPending: boolean;
   isBlocked: boolean;
   blockReason?: string;
+  approvedCustomerName?: string;
+  pendingCustomerName?: string;
 }
 
 function TimeSelectionStep({ reservationData, updateReservationData, onNext, onPrev }: TimeSelectionStepProps) {
@@ -38,7 +40,12 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
   const [slotStatuses, setSlotStatuses] = useState<{[key: string]: SlotStatus}>({});
   const [loading, setLoading] = useState(true);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReservationModal, setShowReservationModal] = useState(false);
   const [modalBlockReason, setModalBlockReason] = useState('');
+  const [modalReservationInfo, setModalReservationInfo] = useState<{
+    customerName: string;
+    status: 'approved' | 'pending';
+  } | null>(null);
 
   React.useEffect(() => {
     if (reservationData.date && reservationData.field) {
@@ -70,7 +77,9 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
           isBlocked: blockResult.isBlocked,
           blockReason: blockResult.reason || undefined,
           isApproved: availabilityResult.approvedCount > 0,
-          hasPending: availabilityResult.pendingCount > 0
+          hasPending: availabilityResult.pendingCount > 0,
+          approvedCustomerName: availabilityResult.approvedCustomerName || undefined,
+          pendingCustomerName: availabilityResult.pendingCustomerName || undefined
         };
       } catch (error) {
         console.error('Kontrol hatası:', error);
@@ -94,7 +103,17 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
       return;
     }
 
-    // Normal akış
+    // Eğer onaylanmış rezervasyon varsa modal aç
+    if (status.isApproved) {
+      setModalReservationInfo({
+        customerName: status.approvedCustomerName || 'Bilinmeyen Kullanıcı',
+        status: 'approved'
+      });
+      setShowReservationModal(true);
+      return;
+    }
+
+    // Normal akış - Bekleyen rezervasyon olsa bile seçilebilir
     setSelectedTime(timeId);
     updateReservationData({ timeSlot: timeId });
   };
@@ -106,25 +125,25 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
   };
   
   const getSlotDisplay = (status: SlotStatus) => {
-    // Önce kilitleme kontrolü (GRİ RENK KORUNUYOR)
+    // Önce kilitleme kontrolü (GRİ RENK)
     if (status.isBlocked) {
       return {
         text: 'KİLİTLİ',
         badgeClass: 'bg-gray-600 text-white',
         buttonClass: 'border-gray-500 bg-gray-100 text-gray-600 cursor-pointer hover:bg-gray-200',
-        isDisabled: false, // Tıklanabilir olmalı
+        isDisabled: false,
         showWarning: false,
         icon: <Lock className="w-4 h-4" />
       };
     }
     
-    // Onaylanmış rezervasyon varsa
+    // Onaylanmış rezervasyon varsa (DOLU - Tıklanabilir)
     if (status.isApproved) {
       return {
-        text: 'DOLU (Onaylanmış)',
-        badgeClass: 'bg-red-100 text-red-600',
-        buttonClass: 'border-red-500 bg-red-50 text-red-400 cursor-not-allowed',
-        isDisabled: true,
+        text: 'DOLU',
+        badgeClass: 'bg-red-600 text-white',
+        buttonClass: 'border-red-500 bg-red-50 text-red-600 cursor-pointer hover:bg-red-100',
+        isDisabled: false,
         showWarning: false,
         icon: null
       };
@@ -206,6 +225,54 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
         </div>
       )}
 
+      {/* Rezervasyon Bilgi Modalı (DOLU SAAT İÇİN) */}
+      {showReservationModal && modalReservationInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowReservationModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <User className="w-8 h-8 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Saat Dolu
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Bu saat dilimi için onaylanmış bir rezervasyon bulunmaktadır.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-r-lg mb-6">
+              <p className="text-sm font-semibold text-red-700 mb-2">Rezervasyon Sahibi:</p>
+              <p className="text-base text-red-900 font-medium">
+                {modalReservationInfo.customerName}
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-yellow-800">
+                ⚠️ Bu saat için rezervasyon yapılamaz. Lütfen başka bir saat seçin.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowReservationModal(false)}
+              className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            >
+              Anladım
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Saat Dilimi Seçimi</h2>
         <p className="text-gray-600">Oynamak istediğiniz saat dilimini seçin</p>
@@ -229,10 +296,13 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
       {selectedTime && currentSlotStatus.hasPending && !currentSlotStatus.isApproved && !currentSlotStatus.isBlocked && (
         <div className="p-4 bg-yellow-50 border-2 border-yellow-400 text-yellow-900 rounded-lg flex items-start gap-3 shadow-md">
           <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-base mb-1">⚠️ Dikkat!</p>
+          <div className="flex-1">
+            <p className="font-bold text-base mb-2">⚠️ Dikkat!</p>
+            <p className="text-sm mb-2">
+              Bu saatte <strong>{currentSlotStatus.pendingCustomerName}</strong> adlı kullanıcının bekleyen bir randevu talebi var. 
+            </p>
             <p className="text-sm">
-              Bu saatte bekleyen bir randevu talebi var. Onaylanırsa, sizin randevunuz otomatik reddedilecektir. Başka bir saat seçmeniz önerilir.
+              Eğer o rezervasyon onaylanırsa, sizin randevunuz otomatik olarak reddedilecektir. Başka bir saat seçmeniz önerilir.
             </p>
           </div>
         </div>
@@ -266,12 +336,9 @@ function TimeSelectionStep({ reservationData, updateReservationData, onNext, onP
               ) : (
                 <button
                   key={slot.id}
-                  onClick={() => !isDisabled && handleTimeSelect(slot.id, slotData)}
-                  disabled={isDisabled}
+                  onClick={() => handleTimeSelect(slot.id, slotData)}
                   className={`w-full p-4 border-2 rounded-lg transition-all ${
-                    isDisabled 
-                      ? buttonClass 
-                      : selectedTime === slot.id
+                    selectedTime === slot.id && !slotData.isBlocked && !slotData.isApproved
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md'
                       : buttonClass
                   }`}
