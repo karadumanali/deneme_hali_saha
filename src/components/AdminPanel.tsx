@@ -115,10 +115,10 @@ function AdminPanel() {
   return (
     <div className="space-y-6">
       {/* Tab Menüsü */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('reservations')}
-          className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+          className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'reservations'
               ? 'border-emerald-600 text-emerald-600'
               : 'border-transparent text-gray-600 hover:text-gray-800'
@@ -129,7 +129,7 @@ function AdminPanel() {
         </button>
         <button
           onClick={() => setActiveTab('blocks')}
-          className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+          className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'blocks'
               ? 'border-red-600 text-red-600'
               : 'border-transparent text-gray-600 hover:text-gray-800'
@@ -144,48 +144,48 @@ function AdminPanel() {
       {activeTab === 'reservations' && (
         <>
           {/* İstatistikler */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg p-6 border shadow-sm">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg p-4 lg:p-6 border shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Toplam Rezervasyon</p>
-                  <p className="text-2xl font-bold text-gray-900">{reservations.length}</p>
+                  <p className="text-xs lg:text-sm text-gray-500">Toplam</p>
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900">{reservations.length}</p>
                 </div>
-                <Calendar className="w-8 h-8 text-blue-500" />
+                <Calendar className="w-6 h-6 lg:w-8 lg:h-8 text-blue-500" />
               </div>
             </div>
             
-            <div className="bg-white rounded-lg p-6 border shadow-sm">
+            <div className="bg-white rounded-lg p-4 lg:p-6 border shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Bekleyen</p>
-                  <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+                  <p className="text-xs lg:text-sm text-gray-500">Bekleyen</p>
+                  <p className="text-xl lg:text-2xl font-bold text-yellow-600">{pendingCount}</p>
                 </div>
-                <Clock className="w-8 h-8 text-yellow-500" />
+                <Clock className="w-6 h-6 lg:w-8 lg:h-8 text-yellow-500" />
               </div>
             </div>
             
-            <div className="bg-white rounded-lg p-6 border shadow-sm">
+            <div className="bg-white rounded-lg p-4 lg:p-6 border shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Onaylanan</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-xs lg:text-sm text-gray-500">Onaylanan</p>
+                  <p className="text-xl lg:text-2xl font-bold text-green-600">
                     {reservations.filter(r => r.status === 'approved').length}
                   </p>
                 </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
+                <CheckCircle className="w-6 h-6 lg:w-8 lg:h-8 text-green-500" />
               </div>
             </div>
             
-            <div className="bg-white rounded-lg p-6 border shadow-sm">
+            <div className="bg-white rounded-lg p-4 lg:p-6 border shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Reddedilen</p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-xs lg:text-sm text-gray-500">Reddedilen</p>
+                  <p className="text-xl lg:text-2xl font-bold text-red-600">
                     {reservations.filter(r => r.status === 'rejected').length}
                   </p>
                 </div>
-                <XCircle className="w-8 h-8 text-red-500" />
+                <XCircle className="w-6 h-6 lg:w-8 lg:h-8 text-red-500" />
               </div>
             </div>
           </div>
@@ -208,7 +208,7 @@ function AdminPanel() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors text-sm ${
                 filter === 'all'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -218,7 +218,7 @@ function AdminPanel() {
             </button>
             <button
               onClick={() => setFilter('pending')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors text-sm ${
                 filter === 'pending'
                   ? 'bg-yellow-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -228,7 +228,7 @@ function AdminPanel() {
             </button>
             <button
               onClick={() => setFilter('approved')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors text-sm ${
                 filter === 'approved'
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -238,7 +238,7 @@ function AdminPanel() {
             </button>
             <button
               onClick={() => setFilter('rejected')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors text-sm ${
                 filter === 'rejected'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -248,85 +248,90 @@ function AdminPanel() {
             </button>
           </div>
 
-          {/* Rezervasyon Listesi */}
+          {/* Rezervasyon Listesi - MOBİL İÇİN YATAY KAYDIRMA */}
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="px-6 py-4 border-b bg-gray-50">
-              <h2 className="text-lg font-semibold text-gray-800">Rezervasyonlar</h2>
+            <div className="px-4 lg:px-6 py-4 border-b bg-gray-50">
+              <h2 className="text-base lg:text-lg font-semibold text-gray-800">Rezervasyonlar</h2>
             </div>
             
-            <div className="divide-y divide-gray-200">
-              {filteredReservations.map((reservation) => (
-                <div key={reservation.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-500" />
-                          <span className="font-medium">{reservation.customerName}</span>
+            {/* Mobil için yatay kaydırma wrapper */}
+            <div className="overflow-x-auto">
+              <div className="divide-y divide-gray-200">
+                {filteredReservations.map((reservation) => (
+                  <div key={reservation.id} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors" style={{ minWidth: '700px' }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2 min-w-0">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                            <span className="font-medium text-sm lg:text-base">{reservation.customerName}</span>
+                          </div>
+                          {getStatusBadge(reservation.status)}
                         </div>
-                        {getStatusBadge(reservation.status)}
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4 text-xs lg:text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Tarih:</span> {reservation.date}
+                          </div>
+                          <div>
+                            <span className="font-medium">Saha:</span> {reservation.field}
+                          </div>
+                          <div>
+                            <span className="font-medium">Saat:</span> {reservation.timeSlot}
+                          </div>
+                          <div>
+                            <span className="font-medium">Başvuru:</span> {reservation.submittedAt}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          <span className="text-xs lg:text-sm text-gray-600">
+                            Dekont: {reservation.paymentProofName || 'dekont.pdf'}
+                          </span>
+                          {reservation.paymentProofUrl && (
+                          <a 
+                            href={reservation.paymentProofUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:text-emerald-700 text-xs lg:text-sm flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Görüntüle
+                          </a>
+                          )}
+                        </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Tarih:</span> {reservation.date}
+                      {(reservation.status === 'pending' || reservation.status === 'Beklemede') && (
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleApprove(reservation.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs lg:text-sm whitespace-nowrap"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Onayla</span>
+                          </button>
+                          <button
+                            onClick={() => handleReject(reservation.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs lg:text-sm whitespace-nowrap"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            <span>Reddet</span>
+                          </button>
                         </div>
-                        <div>
-                          <span className="font-medium">Saha:</span> {reservation.field}
-                        </div>
-                        <div>
-                          <span className="font-medium">Saat:</span> {reservation.timeSlot}
-                        </div>
-                        <div>
-                          <span className="font-medium">Başvuru:</span> {reservation.submittedAt}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">Dekont: {reservation.paymentProofName || 'dekont.pdf'}</span>
-                        {reservation.paymentProofUrl && (
-                        <a 
-                          href={reservation.paymentProofUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-emerald-600 hover:text-emerald-700 text-sm flex items-center gap-1"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Görüntüle
-                        </a>
-                        )}
-                      </div>
+                      )}
                     </div>
-                    
-                    {(reservation.status === 'pending' || reservation.status === 'Beklemede') && (
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => handleApprove(reservation.id)}
-                          className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Onayla
-                        </button>
-                        <button
-                          onClick={() => handleReject(reservation.id)}
-                          className="flex items-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reddet
-                        </button>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
-              
-              {filteredReservations.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p>Bu filtreye uygun rezervasyon bulunamadı.</p>
-                </div>
-              )}
+                ))}
+                
+                {filteredReservations.length === 0 && (
+                  <div className="p-8 text-center text-gray-500">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p>Bu filtreye uygun rezervasyon bulunamadı.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>

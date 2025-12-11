@@ -6,7 +6,7 @@ interface ReservationData {
   field: string;
   timeSlot: string;
   paymentProof?: File;
-  customerName: string; 
+  customerName: string;
 }
 
 interface FieldOwner {
@@ -81,7 +81,6 @@ function PaymentStep({
     }
   };
 
-  // customerName her değiştiğinde reservationData'yı güncelle
   const handleCustomerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     setCustomerName(name);
@@ -101,7 +100,6 @@ function PaymentStep({
       return;
     }
     
-    // Son kez güncelle
     updateReservationData({ 
       customerName: trimmedCustomerName,
       paymentProof: uploadedFile 
@@ -115,7 +113,6 @@ function PaymentStep({
       timeSlot: reservationData.timeSlot
     });
 
-    // Biraz bekle ki state güncellensin
     setTimeout(async () => {
       await onSubmit();
     }, 100);
@@ -264,12 +261,12 @@ function PaymentStep({
         </div>
       </div>
 
-      {/* Navigasyon Butonları */}
-      <div className="flex justify-between pt-6">
+      {/* Navigasyon Butonları - MOBİL DÜZELTMELİ */}
+      <div className="flex flex-col sm:flex-row justify-between gap-3 pt-6">
         <button
           onClick={onPrev}
           disabled={isLoading}
-          className="flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 w-full sm:w-auto"
         >
           <ChevronLeft className="w-4 h-4" />
           Geri
@@ -278,7 +275,7 @@ function PaymentStep({
         <button
           onClick={handleFinalSubmit} 
           disabled={!isFormValid || isLoading} 
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors w-full sm:w-auto ${
             isFormValid && !isLoading
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
