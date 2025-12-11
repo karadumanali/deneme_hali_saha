@@ -81,13 +81,11 @@ function AdminPanel() {
 
   const filteredReservations = reservations.filter(res => {
     if (filter === 'all') return true;
-    // 'Beklemede' ve 'pending' ikisini de kabul et
     if (filter === 'pending') return res.status === 'pending' || res.status === 'Beklemede';
     return res.status === filter;
   });
 
   const getStatusBadge = (status: Reservation['status']) => {
-    // 'Beklemede' ve 'pending' ikisini de aynı şekilde göster
     if (status === 'pending' || status === 'Beklemede') {
       return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">Bekliyor</span>;
     }
@@ -188,6 +186,20 @@ function AdminPanel() {
                   </p>
                 </div>
                 <XCircle className="w-8 h-8 text-red-500" />
+              </div>
+            </div>
+          </div>
+
+          {/* Bilgi Mesajı - Otomatik Reddetme */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">Otomatik Reddetme Sistemi Aktif</p>
+                <p>
+                  Rezervasyon saatinden 24 saat sonra hala beklemede olan rezervasyonlar otomatik olarak reddedilir.
+                  Sistem her 30 dakikada bir kontrol yapar.
+                </p>
               </div>
             </div>
           </div>

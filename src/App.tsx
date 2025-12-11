@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Dispatch } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { Calendar, MapPin, Clock, CreditCard, Upload, CheckCircle, XCircle } from 'lucide-react';
 import DateSelectionStep from './components/DateSelectionStep';
@@ -10,6 +10,7 @@ import StepIndicator from './components/StepIndicator';
 import AdminLogin from './components/AdminLogin'; 
 import { onAuthStateChange, logoutAdmin } from './services/authService'; 
 import { sendNewReservationEmail } from './services/emailService';
+import { startAutoRejectScheduler, stopAutoRejectScheduler } from './services/autoRejectService';
 
 import { db, storage } from './firebase/config';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -57,6 +58,16 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Otomatik reddetme zamanlayıcısı
+  useEffect(() => {
+    // Admin panelinde otomatik reddetmeyi başlat (her 30 dakikada bir)
+    const schedulerId = startAutoRejectScheduler(30);
+    
+    return () => {
+      // Component unmount olduğunda zamanlayıcıyı durdur
+      stopAutoRejectScheduler(schedulerId);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -66,7 +77,6 @@ function App() {
       alert('Güvenli çıkış yapılırken bir hata oluştu!');
     }
   };
-
 
   const handleNextStep = () => {
     if (currentStep < 3) {
@@ -154,7 +164,6 @@ function App() {
       setIsLoading(false);
     }
   };
-
 
   const renderAdminContent = () => {
       if (isAdminLoggedIn === null) {
@@ -245,6 +254,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-cyan-50">
       <div className="container mx-auto px-4 py-8">
+        {/* Başlık */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">AYBÜ Halı Saha Rezervasyonu</h1>
           <p className="text-gray-600">Kolayca halı saha rezervasyonu yapın</p>
